@@ -37,15 +37,20 @@ builder.Services.AddQuartz(q =>
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
-builder.Services.AddCors(opt =>
+builder.Services.AddCors(options =>
 {
-    opt.AddDefaultPolicy(policy =>
-        policy.WithOrigins("http://localhost:4200")
+    options.AddPolicy("AllowAngularDev", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200") // Sin "/" al final
             .AllowAnyHeader()
-            .AllowAnyMethod());
+            .AllowAnyMethod()
+            .AllowCredentials(); // Si usas cookies o auth
+    });
 });
 
 var app = builder.Build();
+
+app.UseCors("AllowAngularDev"); // <-- ¡Esta línea es crucial!
 
 app.MapPost("/notifications", async (AppDbContext db, string message) =>
 {
@@ -56,6 +61,11 @@ app.MapPost("/notifications", async (AppDbContext db, string message) =>
 
 app.MapGet("/notifications", async (AppDbContext db) =>
     await db.Notifications.OrderByDescending(n => n.CreatedAt).ToListAsync());
+
+app.MapGet("/clean-logs", async (AppDbContext db) =>
+    await db.CleanLogs
+        .OrderByDescending(c => c.ExecuteAt)
+        .ToListAsync());
 
 app.MapPost("/users", async (AppDbContext db, string username, DateTime? lastActiveAt) =>
 {
